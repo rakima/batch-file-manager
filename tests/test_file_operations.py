@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import tempfile
 import unittest
+import os
 from datetime import datetime
 from pathlib import Path
 
@@ -74,6 +75,18 @@ class FileOperationServiceTests(unittest.TestCase):
         self.assertAlmostEqual(value.timestamp(), path.stat().st_mtime, delta=1)
         self.assertAlmostEqual(value.timestamp(), path.stat().st_atime, delta=1)
 
+    @unittest.skipUnless(os.name == "nt", "作成日時変更はWindows専用")
+    def test_updates_creation_time_on_windows(self) -> None:
+        path = self.create_file("created.txt")
+        value = datetime(2024, 5, 6, 7, 8, 9)
+
+        result = self.service.update_timestamps(
+            [path], TimestampUpdate(created=value)
+        )[0]
+
+        self.assertTrue(result.success, result.message)
+        self.assertAlmostEqual(value.timestamp(), path.stat().st_ctime, delta=1)
+
     def test_formats_datetime_presets(self) -> None:
         value = datetime(2026, 9, 2, 15, 4, 5)
         self.assertEqual("20260902", self.service.format_datetime("YYYYMMDD", value))
@@ -86,4 +99,3 @@ class FileOperationServiceTests(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
-
