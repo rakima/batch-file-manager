@@ -134,13 +134,33 @@ class FileOperationService:
         low = creation_time & 0xFFFFFFFF
         high = creation_time >> 32
         file_time = ctypes.wintypes.FILETIME(low, high)
-        handle = ctypes.windll.kernel32.CreateFileW(
+        kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+        kernel32.CreateFileW.argtypes = (
+            ctypes.wintypes.LPCWSTR,
+            ctypes.wintypes.DWORD,
+            ctypes.wintypes.DWORD,
+            ctypes.c_void_p,
+            ctypes.wintypes.DWORD,
+            ctypes.wintypes.DWORD,
+            ctypes.wintypes.HANDLE,
+        )
+        kernel32.CreateFileW.restype = ctypes.wintypes.HANDLE
+        kernel32.SetFileTime.argtypes = (
+            ctypes.wintypes.HANDLE,
+            ctypes.POINTER(ctypes.wintypes.FILETIME),
+            ctypes.c_void_p,
+            ctypes.c_void_p,
+        )
+        kernel32.SetFileTime.restype = ctypes.wintypes.BOOL
+        kernel32.CloseHandle.argtypes = (ctypes.wintypes.HANDLE,)
+        kernel32.CloseHandle.restype = ctypes.wintypes.BOOL
+        handle = kernel32.CreateFileW(
             str(path), 0x0100, 0x00000007, None, 3, 0x80, None
         )
-        if handle == -1:
-            raise ctypes.WinError()
+        if handle == ctypes.wintypes.HANDLE(-1).value:
+            raise ctypes.WinError(ctypes.get_last_error())
         try:
-            if not ctypes.windll.kernel32.SetFileTime(handle, ctypes.byref(file_time), None, None):
-                raise ctypes.WinError()
+            if not kernel32.SetFileTime(handle, ctypes.byref(file_time), None, None):
+                raise ctypes.WinError(ctypes.get_last_error())
         finally:
-            ctypes.windll.kernel32.CloseHandle(handle)
+            kernel32.CloseHandle(handle)
